@@ -42,18 +42,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Multi-Room Paint Calculator</title>
+  <title>GBR Paint Calculator</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    .btn {
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+    .room {
+      transition: background-color 0.3s ease;
+    }
+    .room:hover {
+      background-color: #f1f5f9;
+    }
+  </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-    <h1 class="text-2xl font-bold mb-4 text-center">Multi-Room Paint Calculator</h1>
-    <div id="rooms" class="space-y-4">
-      <div class="room bg-gray-50 p-4 rounded-md" data-room-id="1">
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="text-lg font-semibold">Room 1</h2>
-          <select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
-            <option value="">Select Room Type</option>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-2xl mx-4">
+    <div class="bg-lime-500 p-4 rounded-t-xl">
+      <h1 class="text-2xl sm:text-3xl font-bold text-white text-center">GBR Paint Calculator</h1>
+    </div>
+    <div id="rooms" class="space-y-6 mt-6">
+      <div class="room bg-gray-100 p-6 rounded-lg shadow-sm" data-room-id="1">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">Room 1</h2>
+          <select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3 w-40">
+            <option value="">Room Name</option>
             <option value="Living Room">Living Room</option>
             <option value="Dining Room">Dining Room</option>
             <option value="Kitchen">Kitchen</option>
@@ -74,35 +94,35 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-gray-700">Length (ft)</label>
-            <input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 12">
+            <input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 12">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Width (ft)</label>
-            <input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 10">
+            <input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 10">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Height (ft)</label>
-            <input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 8">
+            <input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 8">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Number of Doors</label>
-            <input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 2">
+            <input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 2">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Number of Windows</label>
-            <input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 3">
+            <input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 3">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Length (ft)</label>
-            <input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 40">
+            <input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="Baseboards, window/door casings">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Wall Color</label>
-            <input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., Blue">
+            <input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., Blue">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Wall Sheen</label>
-            <select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -113,11 +133,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Ceiling Color</label>
-            <input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., White">
+            <input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., White">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Ceiling Sheen</label>
-            <select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -128,11 +148,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Color</label>
-            <input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., White">
+            <input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., White">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Sheen</label>
-            <select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -142,33 +162,45 @@
             </select>
           </div>
         </div>
-        <button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md" hidden>Remove Room</button>
+        <button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md btn" hidden>Remove Room</button>
       </div>
     </div>
     <div class="flex flex-col sm:flex-row justify-between mt-6 gap-4">
-      <button id="add-room" class="bg-green-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-green-700">Add Room</button>
-      <button id="calculate" class="bg-indigo-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-indigo-700">Calculate</button>
+      <button id="add-room" class="bg-lime-500 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-lime-600 btn">Add Room</button>
+      <button id="calculate" class="bg-indigo-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-indigo-700 btn">Calculate</button>
     </div>
-    <div id="result" class="mt-4 text-center"></div>
+    <div id="result" class="mt-6 text-center bg-gray-100 p-4 rounded-lg"></div>
     <div id="export" class="mt-4 text-center flex flex-col sm:flex-row justify-center gap-4">
-      <button id="export-button" class="bg-blue-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-blue-700 hidden">Download Results</button>
-      <button id="copy-button" class="bg-gray-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-gray-700 hidden">Copy Results</button>
+      <button id="export-button" class="bg-blue-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-blue-700 btn hidden">Download Results</button>
+      <button id="copy-button" class="bg-gray-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-gray-700 btn hidden">Copy Results</button>
     </div>
   </div>
   <script>
     let roomCount = 1;
 
+    function showExportButtons() {
+      const exportButton = document.getElementById('export-button');
+      const copyButton = document.getElementById('copy-button');
+      if (exportButton && copyButton) {
+        exportButton.classList.remove('hidden');
+        copyButton.classList.remove('hidden');
+        console.log('Export buttons shown');
+      } else {
+        alert('Error: Export buttons not found. Please refresh the page or try Safari.');
+      }
+    }
+
     document.getElementById('add-room').addEventListener('click', () => {
       roomCount++;
       const roomsContainer = document.getElementById('rooms');
       const newRoom = document.createElement('div');
-      newRoom.className = 'room bg-gray-50 p-4 rounded-md';
+      newRoom.className = 'room bg-gray-100 p-6 rounded-lg shadow-sm';
       newRoom.dataset.roomId = roomCount;
       newRoom.innerHTML = `
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="text-lg font-semibold">Room ${roomCount}</h2>
-          <select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
-            <option value="">Select Room Type</option>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">Room ${roomCount}</h2>
+          <select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3 w-40">
+            <option value="">Room Name</option>
             <option value="Living Room">Living Room</option>
             <option value="Dining Room">Dining Room</option>
             <option value="Kitchen">Kitchen</option>
@@ -189,35 +221,35 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-gray-700">Length (ft)</label>
-            <input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 12">
+            <input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 12">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Width (ft)</label>
-            <input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 10">
+            <input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 10">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Height (ft)</label>
-            <input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 8">
+            <input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 8">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Number of Doors</label>
-            <input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 2">
+            <input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 2">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Number of Windows</label>
-            <input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 3">
+            <input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., 3">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Length (ft)</label>
-            <input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., 40">
+            <input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="Baseboards, window/door casings">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Wall Color</label>
-            <input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., Blue">
+            <input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., Blue">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Wall Sheen</label>
-            <select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -228,11 +260,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Ceiling Color</label>
-            <input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., White">
+            <input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., White">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Ceiling Sheen</label>
-            <select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -243,11 +275,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Color</label>
-            <input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2" placeholder="e.g., White">
+            <input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g., White">
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Trim Sheen</label>
-            <select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2">
+            <select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
               <option value="">Select Sheen</option>
               <option value="Flat">Flat</option>
               <option value="Eggshell">Eggshell</option>
@@ -257,7 +289,7 @@
             </select>
           </div>
         </div>
-        <button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md">Remove Room</button>
+        <button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md btn">Remove Room</button>
       `;
       roomsContainer.appendChild(newRoom);
       updateRemoveButtons();
@@ -283,16 +315,13 @@
     function updateRemoveButtons() {
       const removeButtons = document.querySelectorAll('.remove-room');
       removeButtons.forEach(button => {
-        button.hidden = roomCount === 1;
+        button.classList.toggle('hidden', roomCount === 1);
       });
     }
 
     document.getElementById('calculate').addEventListener('click', () => {
       console.log('Calculate button clicked');
-      const exportButton = document.getElementById('export-button');
-      const copyButton = document.getElementById('copy-button');
-      exportButton.classList.remove('hidden');
-      copyButton.classList.remove('hidden');
+      showExportButtons();
 
       const rooms = document.querySelectorAll('.room');
       let totalWallPaint = 0;
@@ -306,7 +335,7 @@
       const coveragePerGallon = 350;
       const coats = 2;
 
-      let resultHTML = '<p><strong>Paint Needed:</strong></p>';
+      let resultHTML = '<p class="text-lg font-semibold text-gray-800">Paint Needed:</p>';
 
       rooms.forEach((room, index) => {
         const label = room.querySelector('.room-label').value || `Room ${index + 1}`;
@@ -349,10 +378,10 @@
         }
 
         resultHTML += `
-          <p class="mt-2"><strong>${label}:</strong></p>
-          <p>Walls (${wallColor} ${wallSheen}): ${wallPaint.toFixed(2)} gallons</p>
-          <p>Ceiling (${ceilingColor} ${ceilingSheen}): ${ceilingPaint.toFixed(2)} gallons</p>
-          <p>Trim (${trimColor} ${trimSheen}): ${trimPaint.toFixed(2)} gallons</p>
+          <p class="mt-2 text-md font-medium text-gray-800">${label}:</p>
+          <p class="text-gray-600">Walls (${wallColor} ${wallSheen}): ${wallPaint.toFixed(2)} gallons</p>
+          <p class="text-gray-600">Ceiling (${ceilingColor} ${ceilingSheen}): ${ceilingPaint.toFixed(2)} gallons</p>
+          <p class="text-gray-600">Trim (${trimColor} ${trimSheen}): ${trimPaint.toFixed(2)} gallons</p>
         `;
 
         exportContent += `${label}:\n`;
@@ -363,11 +392,11 @@
 
       const totalPaint = totalWallPaint + totalCeilingPaint + totalTrimPaint;
       resultHTML += `
-        <p class="mt-4"><strong>Total for All Rooms:</strong></p>
-        <p>Walls: ${totalWallPaint.toFixed(2)} gallons</p>
-        <p>Ceiling: ${totalCeilingPaint.toFixed(2)} gallons</p>
-        <p>Trim: ${totalTrimPaint.toFixed(2)} gallons</p>
-        <p><strong>Total: ${totalPaint.toFixed(2)} gallons</strong></p>
+        <p class="mt-4 text-lg font-semibold text-gray-800">Total for All Rooms:</p>
+        <p class="text-gray-600">Walls: ${totalWallPaint.toFixed(2)} gallons</p>
+        <p class="text-gray-600">Ceiling: ${totalCeilingPaint.toFixed(2)} gallons</p>
+        <p class="text-gray-600">Trim: ${totalTrimPaint.toFixed(2)} gallons</p>
+        <p class="text-lg font-bold text-gray-800">Total: ${totalPaint.toFixed(2)} gallons</p>
       `;
 
       exportContent += `Total for All Rooms:\n`;
@@ -376,23 +405,22 @@
       exportContent += `  Trim: ${totalTrimPaint.toFixed(2)} gallons\n`;
       exportContent += `  Total: ${totalPaint.toFixed(2)} gallons\n\n`;
 
-      resultHTML += `<p class="mt-4"><strong>Summary by Color and Sheen:</strong></p>`;
+      resultHTML += `<p class="mt-4 text-lg font-semibold text-gray-800">Summary by Color and Sheen:</p>`;
       exportContent += `Summary by Color and Sheen:\n`;
       for (const [key, amount] of Object.entries(paintTotals)) {
-        resultHTML += `<p>${key}: ${amount.toFixed(2)} gallons</p>`;
+        resultHTML += `<p class="text-gray-600">${key}: ${amount.toFixed(2)} gallons</p>`;
         exportContent += `  ${key}: ${amount.toFixed(2)} gallons\n`;
       }
 
       resultHTML += `
-        <p class="text-sm text-gray-600 mt-2">Assumptions: ${coats} coats, ${coveragePerGallon} sq ft per gallon, ${doorArea} sq ft per door, ${windowArea} sq ft per window.</p>
+        <p class="text-sm text-gray-500 mt-2">Assumptions: ${coats} coats, ${coveragePerGallon} sq ft per gallon, ${doorArea} sq ft per door, ${windowArea} sq ft per window.</p>
       `;
       exportContent += `\nAssumptions: ${coats} coats, ${coveragePerGallon} sq ft per gallon, ${doorArea} sq ft per door, ${windowArea} sq ft per window.\n`;
 
       document.getElementById('result').innerHTML = resultHTML;
 
-      if (!exportButton || !copyButton) {
-        alert('Error: Export buttons not found. Please refresh the page or try Safari.');
-      }
+      const exportButton = document.getElementById('export-button');
+      const copyButton = document.getElementById('copy-button');
 
       exportButton.onclick = () => {
         try {
