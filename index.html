@@ -1,418 +1,423 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.4">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; -webkit-text-stroke: #000000; min-height: 14.0px}
-    span.s1 {font-kerning: none}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GBR Paint Calculator</title>
+
+  <!-- Tailwind CDN is fine for GitHub Pages static hosting -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .btn { transition: transform 0.2s ease, opacity 0.2s ease; }
+    .btn:hover { transform: scale(1.05); opacity: 0.9; }
+    .room { transition: background-color 0.3s ease; }
+    .room:hover { background-color: #f1f5f9; }
   </style>
+
+  <!-- Defer ensures DOM exists before JS runs -->
+  <script defer>
+    document.addEventListener("DOMContentLoaded", () => {
+      let roomCount = 1;
+
+      const roomsContainer = document.getElementById("rooms");
+      const addRoomBtn = document.getElementById("add-room");
+      const calcBtn = document.getElementById("calculate");
+      const resultEl = document.getElementById("result");
+      const exportBtn = document.getElementById("export-button");
+      const copyBtn = document.getElementById("copy-button");
+
+      function showExportButtons() {
+        exportBtn.classList.remove("hidden");
+        copyBtn.classList.remove("hidden");
+      }
+
+      function updateRoomNumbers() {
+        document.querySelectorAll(".room").forEach((room, index) => {
+          room.dataset.roomId = String(index + 1);
+          room.querySelector("h2").textContent = `Room ${index + 1}`;
+        });
+        roomCount = document.querySelectorAll(".room").length;
+      }
+
+      function updateRemoveButtons() {
+        document.querySelectorAll(".remove-room").forEach(btn => {
+          btn.classList.toggle("hidden", roomCount <= 1);
+        });
+      }
+
+      addRoomBtn.addEventListener("click", () => {
+        roomCount++;
+        const templateRoom = document.querySelector(".room");
+        const newRoom = templateRoom.cloneNode(true);
+
+        newRoom.dataset.roomId = String(roomCount);
+        newRoom.querySelector("h2").textContent = `Room ${roomCount}`;
+
+        // Reset form fields in cloned room
+        newRoom.querySelectorAll("input, select").forEach(el => {
+          if (el.matches(".include-primer")) {
+            el.checked = true;
+          } else if (el.type === "number") {
+            // Keep defaults where set (waste/primer/finish), otherwise blank
+            el.value = el.defaultValue ?? "";
+          } else if (el.tagName === "SELECT") {
+            el.selectedIndex = 0;
+          } else {
+            el.value = "";
+          }
+        });
+
+        // Hide remove button text until >1 rooms
+        const removeBtn = newRoom.querySelector(".remove-room");
+        removeBtn.classList.add("hidden");
+
+        roomsContainer.appendChild(newRoom);
+        updateRemoveButtons();
+      });
+
+      roomsContainer.addEventListener("click", (e) => {
+        const target = e.target;
+        if (target.classList.contains("remove-room")) {
+          target.closest(".room").remove();
+          updateRoomNumbers();
+          updateRemoveButtons();
+        }
+      });
+
+      calcBtn.addEventListener("click", () => {
+        showExportButtons();
+
+        const rooms = document.querySelectorAll(".room");
+        let totalPrimerGallons = 0;
+        let totalFinishGallons = 0;
+        const paintTotals = {}; // finish paint by color/sheen (raw, pre-waste)
+
+        const doorOpeningDeduct = 20; // sq ft deducted from walls per door opening
+        const doorFaceArea = 21;      // sq ft per side for painting
+        const primerCoverage = 250;
+        const finishCoverage = 350;
+
+        let resultHTML = '<p class="text-xl font-bold text-gray-800 mb-4">Paint & Primer Estimate</p>';
+        let exportContent = "GBR Paint Calculator Results\n\n";
+
+        rooms.forEach((room, index) => {
+          const label = room.querySelector(".room-label").value || `Room ${index + 1}`;
+          const length = parseFloat(room.querySelector(".length").value) || 0;
+          const width = parseFloat(room.querySelector(".width").value) || 0;
+          const height = parseFloat(room.querySelector(".height").value) || 0;
+          const numDoors = parseInt(room.querySelector(".doors").value, 10) || 0;
+          const numWindows = parseInt(room.querySelector(".windows").value, 10) || 0;
+          const trimLength = parseFloat(room.querySelector(".trim").value) || 0;
+
+          const includePrimer = room.querySelector(".include-primer").checked;
+          const primerCoats = parseInt(room.querySelector(".primer-coats").value, 10) || 1;
+          const finishCoats = parseInt(room.querySelector(".finish-coats").value, 10) || 2;
+          const wasteFactor = ((parseFloat(room.querySelector(".waste-factor").value) || 10) / 100);
+
+          const wallColor = room.querySelector(".wall-color").value || "Unnamed";
+          const wallSheen = room.querySelector(".wall-sheen").value || "None";
+          const ceilingColor = room.querySelector(".ceiling-color").value || "Unnamed";
+          const ceilingSheen = room.querySelector(".ceiling-sheen").value || "None";
+          const trimColor = room.querySelector(".trim-color").value || "Unnamed";
+          const trimSheen = room.querySelector(".trim-sheen").value || "None";
+
+          const paintDoors = room.querySelector(".paint-doors").value;
+
+          // Areas
+          const wallGross = 2 * (length * height + width * height);
+          const deductions = (numDoors * doorOpeningDeduct) + (numWindows * 15);
+          const wallNet = Math.max(0, wallGross - deductions);
+          const ceilingArea = length * width;
+
+          // Primer (walls + ceiling)
+          let primerGallons = 0;
+          if (includePrimer && primerCoats > 0) {
+            const primerArea = (wallNet + ceilingArea) * primerCoats;
+            const rawPrimer = primerArea / primerCoverage;
+            primerGallons = Math.ceil(rawPrimer * (1 + wasteFactor));
+            totalPrimerGallons += primerGallons;
+          }
+
+          // Finish paint (raw gallons, pre-waste)
+          const wallFinishRaw = (wallNet * finishCoats) / finishCoverage;
+          const ceilingFinishRaw = (ceilingArea * finishCoats) / finishCoverage;
+          let trimFinishRaw = (trimLength * finishCoats) / finishCoverage;
+
+          // Doors (same paint as trim)
+          let doorsFinishRaw = 0;
+          if (paintDoors !== "none" && numDoors > 0) {
+            const sides = paintDoors === "both" ? 2 : 1;
+            const doorsPaintedSqFt = numDoors * doorFaceArea * sides;
+            doorsFinishRaw = (doorsPaintedSqFt * finishCoats) / finishCoverage;
+            trimFinishRaw += doorsFinishRaw;
+          }
+
+          const finishGallonsRaw = wallFinishRaw + ceilingFinishRaw + trimFinishRaw;
+          const finishGallons = Math.ceil(finishGallonsRaw * (1 + wasteFactor));
+          totalFinishGallons += finishGallons;
+
+          // Group finish paint (raw, pre-waste)
+          if (wallFinishRaw > 0) {
+            const key = `${wallColor} Walls (${wallSheen})`;
+            paintTotals[key] = (paintTotals[key] || 0) + wallFinishRaw;
+          }
+          if (ceilingFinishRaw > 0) {
+            const key = `${ceilingColor} Ceiling (${ceilingSheen})`;
+            paintTotals[key] = (paintTotals[key] || 0) + ceilingFinishRaw;
+          }
+          if (trimFinishRaw > 0) {
+            const suffix = doorsFinishRaw > 0 ? " (incl. Doors)" : "";
+            const key = `${trimColor} Trim${suffix} (${trimSheen})`;
+            paintTotals[key] = (paintTotals[key] || 0) + trimFinishRaw;
+          }
+
+          // Room output (FIXED template string for finish gallons)
+          resultHTML += `
+            <div class="mb-6 border-b pb-4 last:border-b-0">
+              <p class="text-lg font-semibold text-gray-800">${label}:</p>
+              <p class="text-gray-700">Walls net: ${wallNet.toFixed(1)} sq ft</p>
+              <p class="text-gray-700">Ceiling: ${ceilingArea.toFixed(1)} sq ft</p>
+              ${
+                includePrimer
+                  ? `<p class="text-lime-700">Primer: ${primerGallons} gallons (${primerCoats} coat${primerCoats !== 1 ? "s" : ""})</p>`
+                  : `<p class="text-gray-500">Primer: Skipped</p>`
+              }
+              <p class="text-indigo-700 font-medium">Finish paint: ${finishGallons} gallons (${finishCoats} coat${finishCoats !== 1 ? "s" : ""})</p>
+              <p class="text-sm text-gray-600 mt-1">
+                • Walls: ${wallFinishRaw.toFixed(2)} gal<br>
+                • Ceiling: ${ceilingFinishRaw.toFixed(2)} gal<br>
+                • Trim${doorsFinishRaw > 0 ? " + Doors" : ""}: ${trimFinishRaw.toFixed(2)} gal (pre-waste)
+              </p>
+            </div>
+          `;
+
+          // Export text
+          exportContent += `${label}:\n`;
+          exportContent += `  Walls net area: ${wallNet.toFixed(1)} sq ft\n`;
+          exportContent += `  Ceiling area: ${ceilingArea.toFixed(1)} sq ft\n`;
+          if (includePrimer) exportContent += `  Primer: ${primerGallons} gallons (${primerCoats} coats)\n`;
+          exportContent += `  Finish paint: ${finishGallons} gallons (${finishCoats} coats)\n`;
+          exportContent += `    - Walls: ${wallFinishRaw.toFixed(2)} gal\n`;
+          exportContent += `    - Ceiling: ${ceilingFinishRaw.toFixed(2)} gal\n`;
+          exportContent += `    - Trim${doorsFinishRaw > 0 ? " + Doors" : ""}: ${trimFinishRaw.toFixed(2)} gal\n\n`;
+        });
+
+        const grandTotal = totalPrimerGallons + totalFinishGallons;
+
+        resultHTML += `
+          <div class="mt-8 p-6 bg-indigo-100 rounded-xl">
+            <p class="text-2xl font-bold text-indigo-800">Project Totals</p>
+            <p class="text-xl mt-2">Primer: <span class="text-lime-700">${totalPrimerGallons} gallons</span></p>
+            <p class="text-xl">Finish Paint: <span class="text-indigo-700">${totalFinishGallons} gallons</span></p>
+            <p class="text-3xl font-bold mt-4">Grand Total: ${grandTotal} gallons</p>
+          </div>
+
+          <p class="mt-6 text-lg font-semibold text-gray-800">Finish Paint Summary by Color/Sheen:</p>
+        `;
+
+        exportContent += `PROJECT TOTALS:\n`;
+        exportContent += `  Primer: ${totalPrimerGallons} gallons\n`;
+        exportContent += `  Finish Paint: ${totalFinishGallons} gallons\n`;
+        exportContent += `  Grand Total: ${grandTotal} gallons\n\n`;
+        exportContent += `Finish Paint by Color/Sheen (pre-waste):\n`;
+
+        for (const [key, amount] of Object.entries(paintTotals)) {
+          const gal = amount.toFixed(2);
+          resultHTML += `<p class="text-gray-700">${key}: ${gal} gallons</p>`;
+          exportContent += `  ${key}: ${gal} gallons\n`;
+        }
+
+        resultHTML += `
+          <p class="text-sm text-gray-500 mt-8">
+            Assumptions: Primer 250 sq ft/gal, Finish 350 sq ft/gal, Door opening deduct 20 sq ft, Door face 21 sq ft/side, Window deduct 15 sq ft.<br>
+            Always verify with your paint product data sheets.
+          </p>
+        `;
+
+        exportContent += `\nAssumptions:\n  Primer ~250 sq ft/gal\n  Finish ~350 sq ft/gal\n  Door opening deduct: 20 sq ft\n  Door face area: 21 sq ft per side\n  Window deduct: 15 sq ft\n`;
+
+        resultEl.innerHTML = resultHTML;
+
+        // Download
+        exportBtn.onclick = () => {
+          const blob = new Blob([exportContent], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "gbr_paint_calculator_results.txt";
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        // Copy
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(exportContent).then(() => {
+            alert("Results copied to clipboard!");
+          }).catch(() => {
+            alert("Copy failed. Try the download button.");
+          });
+        };
+      });
+
+      updateRemoveButtons();
+    });
+  </script>
 </head>
-<body>
-<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;html lang="en"&gt;</span></p>
-<p class="p1"><span class="s1">&lt;head&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;title&gt;GBR Paint Calculator&lt;/title&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;style&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>body {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.btn {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>transition: transform 0.2s ease, opacity 0.2s ease;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.btn:hover {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>transform: scale(1.05);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>opacity: 0.9;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.room {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>transition: background-color 0.3s ease;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>.room:hover {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>background-color: #f1f5f9;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
-<p class="p1"><span class="s1">&lt;body class="bg-gray-50 min-h-screen flex items-center justify-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;div class="bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-3xl mx-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="bg-lime-500 p-4 rounded-t-xl"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;h1 class="text-2xl sm:text-3xl font-bold text-white text-center"&gt;GBR Paint Calculator&lt;/h1&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;p class="text-white text-center mt-1"&gt;Walls • Ceiling • Trim • Doors • Primer&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;p&gt;&lt;strong&gt;Notes:&lt;/strong&gt; Doors painted with same paint as trim. Primer applies to walls + ceiling only. Trim includes baseboards, shoe molding, casings. Door deduction from walls remains (20 sq ft/door opening). Standard door face ≈21 sq ft per side.&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="rooms" class="space-y-6 mt-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div class="room bg-gray-100 p-6 rounded-lg shadow-sm" data-room-id="1"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="flex justify-between items-center mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;h2 class="text-xl font-semibold text-gray-800"&gt;Room 1&lt;/h2&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3 w-40"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value=""&gt;Room Name&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Living Room"&gt;Living Room&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Dining Room"&gt;Dining Room&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Kitchen"&gt;Kitchen&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Master Bedroom"&gt;Master Bedroom&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Bedroom"&gt;Bedroom&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Bathroom"&gt;Bathroom&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Guest Room"&gt;Guest Room&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Office"&gt;Office&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Nursery"&gt;Nursery&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Family Room"&gt;Family Room&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Laundry Room"&gt;Laundry Room&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Mudroom"&gt;Mudroom&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Hallway"&gt;Hallway&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Basement"&gt;Basement&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;option value="Garage"&gt;Garage&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/select&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Waste Factor (%)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" min="0" max="50" step="5" value="10" class="waste-factor mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Primer Coats&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" min="0" max="3" step="1" value="1" class="primer-coats mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Finish Coats&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" min="1" max="4" step="1" value="2" class="finish-coats mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;label class="flex items-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="checkbox" checked class="include-primer h-5 w-5 text-lime-600 focus:ring-lime-500 border-gray-300 rounded"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;span class="ml-2 text-gray-700 font-medium"&gt;Include Primer (walls + ceiling only)&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="grid grid-cols-1 gap-4 sm:grid-cols-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Length (ft)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 12"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Width (ft)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 10"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Height (ft)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Number of Doors&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Paint Doors? (sides)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;select class="paint-doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="none"&gt;None&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="one"&gt;1 side each&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="both"&gt;Both sides each&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Number of Windows&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Trim Length (ft)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="Baseboards, shoe, casings"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Wall Color&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. Blue"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Wall Sheen&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value=""&gt;Select Sheen&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Flat"&gt;Flat&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Eggshell"&gt;Eggshell&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Satin"&gt;Satin&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Semi-Gloss"&gt;Semi-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="High-Gloss"&gt;High-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Ceiling Color&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. White"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Ceiling Sheen&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value=""&gt;Select Sheen&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Flat"&gt;Flat&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Eggshell"&gt;Eggshell&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Satin"&gt;Satin&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Semi-Gloss"&gt;Semi-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="High-Gloss"&gt;High-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Trim Color (incl. Doors)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. White"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;label class="block text-sm font-medium text-gray-700"&gt;Trim Sheen (incl. Doors)&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value=""&gt;Select Sheen&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Flat"&gt;Flat&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Eggshell"&gt;Eggshell&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Satin"&gt;Satin&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="Semi-Gloss"&gt;Semi-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;option value="High-Gloss"&gt;High-Gloss&lt;/option&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md btn" hidden&gt;Remove Room&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="flex flex-col sm:flex-row justify-between mt-6 gap-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button id="add-room" class="bg-lime-500 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-lime-600 btn"&gt;Add Room&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button id="calculate" class="bg-indigo-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-indigo-700 btn"&gt;Calculate&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="result" class="mt-6 text-center bg-gray-100 p-4 rounded-lg"&gt;&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div id="export" class="mt-4 text-center flex flex-col sm:flex-row justify-center gap-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button id="export-button" class="bg-blue-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-blue-700 btn hidden"&gt;Download Results&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;button id="copy-button" class="bg-gray-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-gray-700 btn hidden"&gt;Copy Results&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>let roomCount = 1;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>function showExportButtons() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.getElementById('export-button').classList.remove('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.getElementById('copy-button').classList.remove('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('add-room').addEventListener('click', () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>roomCount++;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const roomsContainer = document.getElementById('rooms');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const templateRoom = document.querySelector('.room');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const newRoom = templateRoom.cloneNode(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>newRoom.dataset.roomId = roomCount;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>newRoom.querySelector('h2').textContent = `Room ${roomCount}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Reset form fields</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>newRoom.querySelectorAll('input, select').forEach(el =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (el.type === 'checkbox') el.checked = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>else if (el.type === 'number') el.value = el.defaultValue || '';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>else if (el.tagName === 'SELECT') el.selectedIndex = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>else el.value = '';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>roomsContainer.appendChild(newRoom);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>updateRemoveButtons();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('rooms').addEventListener('click', (e) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (e.target.classList.contains('remove-room')) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>e.target.closest('.room').remove();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>updateRoomNumbers();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>updateRemoveButtons();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>function updateRoomNumbers() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.querySelectorAll('.room').forEach((room, index) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>room.dataset.roomId = index + 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>room.querySelector('h2').textContent = `Room ${index + 1}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>roomCount = document.querySelectorAll('.room').length;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>function updateRemoveButtons() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.querySelectorAll('.remove-room').forEach(btn =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>btn.classList.toggle('hidden', roomCount &lt;= 1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>document.getElementById('calculate').addEventListener('click', () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>showExportButtons();</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const rooms = document.querySelectorAll('.room');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let totalPrimerGallons = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let totalFinishGallons = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let paintTotals = {}; // finish paint by color/sheen</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const doorOpeningDeduct = 20; <span class="Apple-converted-space">  </span>// sq ft deducted from walls per door</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const doorFaceArea = 21;<span class="Apple-converted-space">        </span>// sq ft per side for painting</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const primerCoverage = 250;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const finishCoverage = 350;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let resultHTML = '&lt;p class="text-xl font-bold text-gray-800 mb-4"&gt;Paint &amp; Primer Estimate&lt;/p&gt;';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let exportContent = 'GBR Paint Calculator Results\n\n';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>rooms.forEach((room, index) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const label = room.querySelector('.room-label').value || `Room ${index + 1}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const length = parseFloat(room.querySelector('.length').value) || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const width = parseFloat(room.querySelector('.width').value) || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const height = parseFloat(room.querySelector('.height').value) || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const numDoors = parseInt(room.querySelector('.doors').value) || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const numWindows = parseInt(room.querySelector('.windows').value) || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const trimLength = parseFloat(room.querySelector('.trim').value) || 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const includePrimer = room.querySelector('.include-primer').checked;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const primerCoats = parseInt(room.querySelector('.primer-coats').value) || 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const finishCoats = parseInt(room.querySelector('.finish-coats').value) || 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wasteFactor = (parseFloat(room.querySelector('.waste-factor').value) || 10) / 100;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wallColor = room.querySelector('.wall-color').value || 'Unnamed';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wallSheen = room.querySelector('.wall-sheen').value || 'None';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ceilingColor = room.querySelector('.ceiling-color').value || 'Unnamed';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ceilingSheen = room.querySelector('.ceiling-sheen').value || 'None';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const trimColor = room.querySelector('.trim-color').value || 'Unnamed';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const trimSheen = room.querySelector('.trim-sheen').value || 'None';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const paintDoors = room.querySelector('.paint-doors').value;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Areas</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wallGross = 2 * (length * height + width * height);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const deductions = (numDoors * doorOpeningDeduct) + (numWindows * 15);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wallNet = Math.max(0, wallGross - deductions);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ceilingArea = length * width;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Primer (walls + ceiling)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let primerGallons = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (includePrimer &amp;&amp; primerCoats &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const primerArea = (wallNet + ceilingArea) * primerCoats;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const rawPrimer = primerArea / primerCoverage;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>primerGallons = Math.ceil(rawPrimer * (1 + wasteFactor));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>totalPrimerGallons += primerGallons;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Finish paint</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const wallFinishRaw = (wallNet * finishCoats) / finishCoverage;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ceilingFinishRaw = (ceilingArea * finishCoats) / finishCoverage;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let trimFinishRaw = (trimLength * finishCoats) / finishCoverage;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Doors (same paint as trim)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let doorsFinishRaw = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let doorsPaintedSqFt = 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (paintDoors !== 'none' &amp;&amp; numDoors &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const sides = paintDoors === 'both' ? 2 : 1;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>doorsPaintedSqFt = numDoors * doorFaceArea * sides;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>doorsFinishRaw = (doorsPaintedSqFt * finishCoats) / finishCoverage;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>trimFinishRaw += doorsFinishRaw;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const finishGallonsRaw = wallFinishRaw + ceilingFinishRaw + trimFinishRaw;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const finishGallons = Math.ceil(finishGallonsRaw * (1 + wasteFactor));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>totalFinishGallons += finishGallons;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Group finish paint</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (wallFinishRaw &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const key = `${wallColor} Walls (${wallSheen})`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>paintTotals[key] = (paintTotals[key] || 0) + wallFinishRaw;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (ceilingFinishRaw &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const key = `${ceilingColor} Ceiling (${ceilingSheen})`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>paintTotals[key] = (paintTotals[key] || 0) + ceilingFinishRaw;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (trimFinishRaw &gt; 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const suffix = doorsFinishRaw &gt; 0 ? ' (incl. Doors)' : '';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const key = `${trimColor} Trim${suffix} (${trimSheen})`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>paintTotals[key] = (paintTotals[key] || 0) + trimFinishRaw;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Room output</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>resultHTML += `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div class="mb-6 border-b pb-4 last:border-b-0"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-lg font-semibold text-gray-800"&gt;${label}:&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-gray-700"&gt;Walls net: ${wallNet.toFixed(1)} sq ft&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-gray-700"&gt;Ceiling: ${ceilingArea.toFixed(1)} sq ft&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>${includePrimer ? `&lt;p class="text-lime-700"&gt;Primer: ${primerGallons} gallons (${primerCoats} coat${primerCoats !== 1 ? 's' : ''})&lt;/p&gt;` : '&lt;p class="text-gray-500"&gt;Primer: Skipped&lt;/p&gt;'}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-indigo-700 font-medium"&gt;Finish paint: $$ <span class="Apple-converted-space">  </span>{finishGallons} gallons ( <span class="Apple-converted-space">  </span>$${finishCoats} coat${finishCoats !== 1 ? 's' : ''})&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-sm text-gray-600 mt-1"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>• Walls: ${wallFinishRaw.toFixed(2)} gal&lt;br&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>• Ceiling: ${ceilingFinishRaw.toFixed(2)} gal&lt;br&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>• Trim${doorsFinishRaw &gt; 0 ? ' + Doors' : ''}: ${trimFinishRaw.toFixed(2)} gal (pre-waste)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>`;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `${label}:\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">  </span>Walls net area: ${wallNet.toFixed(1)} sq ft\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">  </span>Ceiling area: ${ceilingArea.toFixed(1)} sq ft\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (includePrimer) exportContent += `<span class="Apple-converted-space">  </span>Primer: ${primerGallons} gallons (${primerCoats} coats)\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">  </span>Finish paint: ${finishGallons} gallons (${finishCoats} coats)\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">    </span>- Walls: ${wallFinishRaw.toFixed(2)} gal\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">    </span>- Ceiling: ${ceilingFinishRaw.toFixed(2)} gal\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">    </span>- Trim${doorsFinishRaw &gt; 0 ? ' + Doors' : ''}: ${trimFinishRaw.toFixed(2)} gal\n\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const grandTotal = totalPrimerGallons + totalFinishGallons;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>resultHTML += `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="mt-8 p-6 bg-indigo-100 rounded-xl"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p class="text-2xl font-bold text-indigo-800"&gt;Project Totals&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p class="text-xl mt-2"&gt;Primer: &lt;span class="text-lime-700"&gt;${totalPrimerGallons} gallons&lt;/span&gt;&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p class="text-xl"&gt;Finish Paint: &lt;span class="text-indigo-700"&gt;${totalFinishGallons} gallons&lt;/span&gt;&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p class="text-3xl font-bold mt-4"&gt;Grand Total: ${grandTotal} gallons&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;p class="mt-6 text-lg font-semibold text-gray-800"&gt;Finish Paint Summary by Color/Sheen:&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>`;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `PROJECT TOTALS:\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `<span class="Apple-converted-space">  </span>Primer: ${totalPrimerGallons} gallons\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `<span class="Apple-converted-space">  </span>Finish Paint: ${totalFinishGallons} gallons\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `<span class="Apple-converted-space">  </span>Grand Total: ${grandTotal} gallons\n\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `Finish Paint by Color/Sheen (pre-waste):\n`;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>for (const [key, amount] of Object.entries(paintTotals)) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const gal = amount.toFixed(2);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>resultHTML += `&lt;p class="text-gray-700"&gt;${key}: ${gal} gallons&lt;/p&gt;`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>exportContent += `<span class="Apple-converted-space">  </span>${key}: ${gal} gallons\n`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>resultHTML += `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;p class="text-sm text-gray-500 mt-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>Assumptions: Primer 250 sq ft/gal, Finish 350 sq ft/gal, Door opening deduct 20 sq ft, Door face 21 sq ft/side, Window deduct 15 sq ft.&lt;br&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>Always verify with your paint product data sheets.</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>`;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>exportContent += `\nAssumptions:\n<span class="Apple-converted-space">  </span>Primer ~250 sq ft/gal\n<span class="Apple-converted-space">  </span>Finish ~350 sq ft/gal\n<span class="Apple-converted-space">  </span>Door opening deduct: 20 sq ft\n<span class="Apple-converted-space">  </span>Door face area: 21 sq ft per side\n<span class="Apple-converted-space">  </span>Window deduct: 15 sq ft\n`;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.getElementById('result').innerHTML = resultHTML;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>// Export / Copy handlers</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.getElementById('export-button').onclick = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const blob = new Blob([exportContent], { type: 'text/plain' });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const url = URL.createObjectURL(blob);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const a = document.createElement('a');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>a.href = url;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>a.download = 'gbr_paint_calculator_results.txt';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>a.click();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>URL.revokeObjectURL(url);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.getElementById('copy-button').onclick = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>navigator.clipboard.writeText(exportContent).then(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>alert('Results copied to clipboard!');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}).catch(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>alert('Copy failed. Try the download button.');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>};</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>updateRemoveButtons();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-3xl mx-4">
+    <div class="bg-lime-500 p-4 rounded-t-xl">
+      <h1 class="text-2xl sm:text-3xl font-bold text-white text-center">GBR Paint Calculator</h1>
+      <p class="text-white text-center mt-1">Walls • Ceiling • Trim • Doors • Primer</p>
+    </div>
+
+    <div class="mt-4 p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
+      <p><strong>Notes:</strong> Doors painted with same paint as trim. Primer applies to walls + ceiling only. Trim includes baseboards, shoe molding, casings. Door deduction from walls remains (20 sq ft/door opening). Standard door face ≈21 sq ft per side.</p>
+    </div>
+
+    <div id="rooms" class="space-y-6 mt-6">
+      <div class="room bg-gray-100 p-6 rounded-lg shadow-sm" data-room-id="1">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold text-gray-800">Room 1</h2>
+          <select class="room-label mt-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3 w-40">
+            <option value="">Room Name</option>
+            <option value="Living Room">Living Room</option>
+            <option value="Dining Room">Dining Room</option>
+            <option value="Kitchen">Kitchen</option>
+            <option value="Master Bedroom">Master Bedroom</option>
+            <option value="Bedroom">Bedroom</option>
+            <option value="Bathroom">Bathroom</option>
+            <option value="Guest Room">Guest Room</option>
+            <option value="Office">Office</option>
+            <option value="Nursery">Nursery</option>
+            <option value="Family Room">Family Room</option>
+            <option value="Laundry Room">Laundry Room</option>
+            <option value="Mudroom">Mudroom</option>
+            <option value="Hallway">Hallway</option>
+            <option value="Basement">Basement</option>
+            <option value="Garage">Garage</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Waste Factor (%)</label>
+            <input type="number" min="0" max="50" step="5" value="10" class="waste-factor mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Primer Coats</label>
+            <input type="number" min="0" max="3" step="1" value="1" class="primer-coats mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Finish Coats</label>
+            <input type="number" min="1" max="4" step="1" value="2" class="finish-coats mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="flex items-center">
+            <input type="checkbox" checked class="include-primer h-5 w-5 text-lime-600 focus:ring-lime-500 border-gray-300 rounded">
+            <span class="ml-2 text-gray-700 font-medium">Include Primer (walls + ceiling only)</span>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Length (ft)</label>
+            <input type="number" step="0.1" min="0" class="length mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 12">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Width (ft)</label>
+            <input type="number" step="0.1" min="0" class="width mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 10">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Height (ft)</label>
+            <input type="number" step="0.1" min="0" class="height mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 8">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Number of Doors</label>
+            <input type="number" min="0" class="doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Paint Doors? (sides)</label>
+            <select class="paint-doors mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+              <option value="none">None</option>
+              <option value="one">1 side each</option>
+              <option value="both">Both sides each</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Number of Windows</label>
+            <input type="number" min="0" class="windows mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. 3">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Trim Length (ft)</label>
+            <input type="number" step="0.1" min="0" class="trim mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="Baseboards, shoe, casings">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Wall Color</label>
+            <input type="text" class="wall-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. Blue">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Wall Sheen</label>
+            <select class="wall-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+              <option value="">Select Sheen</option>
+              <option value="Flat">Flat</option>
+              <option value="Eggshell">Eggshell</option>
+              <option value="Satin">Satin</option>
+              <option value="Semi-Gloss">Semi-Gloss</option>
+              <option value="High-Gloss">High-Gloss</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Ceiling Color</label>
+            <input type="text" class="ceiling-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. White">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Ceiling Sheen</label>
+            <select class="ceiling-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+              <option value="">Select Sheen</option>
+              <option value="Flat">Flat</option>
+              <option value="Eggshell">Eggshell</option>
+              <option value="Satin">Satin</option>
+              <option value="Semi-Gloss">Semi-Gloss</option>
+              <option value="High-Gloss">High-Gloss</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Trim Color (incl. Doors)</label>
+            <input type="text" class="trim-color mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3" placeholder="e.g. White">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Trim Sheen (incl. Doors)</label>
+            <select class="trim-sheen mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-lg py-2 px-3">
+              <option value="">Select Sheen</option>
+              <option value="Flat">Flat</option>
+              <option value="Eggshell">Eggshell</option>
+              <option value="Satin">Satin</option>
+              <option value="Semi-Gloss">Semi-Gloss</option>
+              <option value="High-Gloss">High-Gloss</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="remove-room mt-4 text-red-600 hover:text-red-800 text-lg font-medium py-3 px-6 rounded-md btn hidden">Remove Room</button>
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row justify-between mt-6 gap-4">
+      <button id="add-room" class="bg-lime-500 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-lime-600 btn">Add Room</button>
+      <button id="calculate" class="bg-indigo-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-indigo-700 btn">Calculate</button>
+    </div>
+
+    <div id="result" class="mt-6 text-center bg-gray-100 p-4 rounded-lg"></div>
+
+    <div id="export" class="mt-4 text-center flex flex-col sm:flex-row justify-center gap-4">
+      <button id="export-button" class="bg-blue-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-blue-700 btn hidden">Download Results</button>
+      <button id="copy-button" class="bg-gray-600 text-white text-lg font-medium py-3 px-6 rounded-md hover:bg-gray-700 btn hidden">Copy Results</button>
+    </div>
+  </div>
 </body>
 </html>
